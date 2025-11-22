@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { TrendingUp, Thermometer, Droplets, Wind, Flame, Recycle, Target, Users } from "lucide-react";
+import { Recycle, Target, Users, Truck, Store, Flame, TreePine, Droplets, Wind, AlertTriangle, TrendingUp, Globe } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { nairobiStats2024 } from "@/lib/climateData";
@@ -89,26 +89,26 @@ const Home = () => {
       </header>
 
       {/* Quick Actions */}
-      <div className="grid md:grid-cols-3 gap-4 mb-8">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <Link to="/groups">
           <Card className="p-6 hover:shadow-lg transition-all cursor-pointer bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-            <Recycle className="h-8 w-8 text-primary mb-3" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">Track Waste</h3>
-            <p className="text-sm text-muted-foreground">Register your group and log waste collection data</p>
+            <Users className="h-8 w-8 text-primary mb-3" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">Collector Dashboard</h3>
+            <p className="text-sm text-muted-foreground">Manage your waste collection operations and service requests</p>
+          </Card>
+        </Link>
+        <Link to="/marketplace">
+          <Card className="p-6 hover:shadow-lg transition-all cursor-pointer bg-gradient-to-br from-success/10 to-success/5 border-success/20">
+            <Store className="h-8 w-8 text-success mb-3" />
+            <h3 className="text-lg font-semibold text-foreground mb-2">Marketplace</h3>
+            <p className="text-sm text-muted-foreground">Buy and sell recyclable materials</p>
           </Card>
         </Link>
         <Link to="/dashboard">
-          <Card className="p-6 hover:shadow-lg transition-all cursor-pointer bg-gradient-to-br from-secondary/10 to-secondary/5 border-secondary/20">
-            <Target className="h-8 w-8 text-secondary mb-3" />
+          <Card className="p-6 hover:shadow-lg transition-all cursor-pointer bg-gradient-to-br from-warning/10 to-warning/5 border-warning/20">
+            <Target className="h-8 w-8 text-warning mb-3" />
             <h3 className="text-lg font-semibold text-foreground mb-2">View Progress</h3>
             <p className="text-sm text-muted-foreground">See collective impact and group leaderboard</p>
-          </Card>
-        </Link>
-        <Link to="/community">
-          <Card className="p-6 hover:shadow-lg transition-all cursor-pointer bg-gradient-to-br from-success/10 to-success/5 border-success/20">
-            <Users className="h-8 w-8 text-success mb-3" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">Join Community</h3>
-            <p className="text-sm text-muted-foreground">Connect with other groups across Nairobi</p>
           </Card>
         </Link>
       </div>

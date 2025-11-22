@@ -1,7 +1,7 @@
 export interface Group {
   id: string;
   name: string;
-  ward: string;
+  constituency: string;
   contactPerson: string;
   phoneNumber: string;
   registeredAt: string;
@@ -34,7 +34,7 @@ export interface WasteStats {
   };
 }
 
-export const NAIROBI_WARDS = [
+export const NAIROBI_CONSTITUENCIES = [
   "Westlands",
   "Dagoretti North",
   "Dagoretti South",
@@ -51,5 +51,8 @@ export const NAIROBI_WARDS = [
   "Makadara",
   "Kamukunji",
   "Starehe",
-  "Mathare",
+  "Mathare"
 ];
+
+// For backward compatibility
+export const NAIROBI_WARDS = NAIROBI_CONSTITUENCIES;

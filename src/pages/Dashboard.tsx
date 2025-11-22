@@ -2,11 +2,13 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useSupabase } from "@/contexts/SupabaseContext";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { TrendingUp, Target, Users, Recycle, Leaf, Award } from "lucide-react";
 import { Group, WasteEntry } from "@/types/waste";
 
 const Dashboard = () => {
+  const { user } = useSupabase();
   const [groups] = useLocalStorage<Group[]>("nairobiwaste-groups", []);
   const [wasteEntries] = useLocalStorage<WasteEntry[]>("nairobiwaste-entries", []);
   const [currentGroup] = useLocalStorage<string | null>("nairobiwaste-currentgroup", null);
@@ -61,11 +63,45 @@ const Dashboard = () => {
   return (
     <div className="pb-20 px-4 pt-6 max-w-screen-xl mx-auto">
       <header className="mb-8 animate-fade-in">
-        <h1 className="text-4xl font-bold text-foreground mb-2">Impact Dashboard</h1>
+        <h1 className="text-4xl font-bold text-foreground mb-2">
+          {user ? "Your Impact Dashboard" : "Impact Dashboard"}
+        </h1>
         <p className="text-muted-foreground text-lg">
-          Collective waste reduction across Nairobi groups
+          {user 
+            ? "Track your group's waste collection progress and see your ranking"
+            : "Collective waste reduction across Nairobi groups"
+          }
         </p>
       </header>
+
+      {/* Personalized welcome for signed-in users */}
+      {user && currentGroup && (
+        <Card className="p-6 mb-6 bg-gradient-to-br from-success/10 to-success/5 border-success/20">
+          <div className="flex items-center gap-3 mb-2">
+            <Award className="h-6 w-6 text-success" />
+            <h2 className="text-xl font-bold text-foreground">Welcome back!</h2>
+          </div>
+          <p className="text-muted-foreground">
+            Your group is making a real difference in Nairobi's waste management. Keep up the great work!
+          </p>
+        </Card>
+      )}
+
+      {/* Prompt for signed-in users without a group */}
+      {user && !currentGroup && (
+        <Card className="p-6 mb-6 bg-gradient-to-br from-warning/10 to-warning/5 border-warning/20">
+          <div className="flex items-center gap-3 mb-2">
+            <Users className="h-6 w-6 text-warning" />
+            <h2 className="text-xl font-bold text-foreground">Join a Group</h2>
+          </div>
+          <p className="text-muted-foreground mb-4">
+            You're signed in but haven't linked to a waste collection group yet. Visit the Groups page to register or join a group.
+          </p>
+          <a href="/groups" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 py-2">
+            Go to Groups
+          </a>
+        </Card>
+      )}
 
       {/* Annual Goal Progress */}
       <Card className="p-6 mb-6 bg-gradient-to-br from-primary/10 to-secondary/10">

@@ -1,12 +1,16 @@
-import { Home, BookOpen, Users, BarChart3, Recycle } from "lucide-react";
+import { Home, BookOpen, Users, BarChart3, Recycle, Store, LogIn, LogOut, Truck } from "lucide-react";
 import { NavLink } from "./NavLink";
+import { useSupabase } from "@/contexts/SupabaseContext";
+import { Button } from "@/components/ui/button";
 
 const BottomNav = () => {
+  const { user, signOut } = useSupabase();
+  
   const navItems = [
     { icon: Home, label: "Home", path: "/" },
-    { icon: Recycle, label: "Groups", path: "/groups" },
+    { icon: Users, label: "Groups", path: "/groups" },
+    { icon: Store, label: "Market", path: "/marketplace" },
     { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
-    { icon: BookOpen, label: "Learn", path: "/learn" },
     { icon: Users, label: "Community", path: "/community" },
   ];
 
@@ -32,6 +36,33 @@ const BottomNav = () => {
             )}
           </NavLink>
         ))}
+        <div className="flex flex-col items-center justify-center gap-1 px-4 py-2">
+          {user ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={signOut}
+              className="h-8 w-8 p-0"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          ) : (
+            <NavLink
+              to="/auth"
+              className="flex flex-col items-center justify-center gap-1"
+              activeClassName="text-primary bg-primary/10"
+            >
+              {({ isActive }) => (
+                <>
+                  <LogIn className={`h-5 w-5 transition-transform ${
+                    isActive ? "scale-110" : ""
+                  }`} />
+                  <span className="text-xs font-medium">Sign In</span>
+                </>
+              )}
+            </NavLink>
+          )}
+        </div>
       </div>
     </nav>
   );
