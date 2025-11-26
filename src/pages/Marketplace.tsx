@@ -62,8 +62,9 @@ const Marketplace = () => {
 
   const fetchListings = async () => {
     try {
+      setLoading(true);
       const data = await wasteListingService.getListings();
-      setListings(data);
+      setListings(data || []);
       setLoading(false);
     } catch (error: unknown) {
       // Fallback to mock data if Supabase fails
@@ -101,10 +102,10 @@ const Marketplace = () => {
           id: '3',
           sellerId: 'seller-3',
           wasteType: 'electronic',
-          quantity: 20,
+          quantity: 25,
           pricePerKg: 50,
-          location: 'CBD, Nairobi',
-          description: 'Electronic waste - computers and phones',
+          location: 'Industrial Area, Nairobi',
+          description: 'Electronic waste and components',
           status: 'available',
           availableFrom: new Date().toISOString(),
           availableUntil: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),

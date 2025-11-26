@@ -1,11 +1,12 @@
-import { Home, BookOpen, Users, BarChart3, Recycle, Store, LogIn, LogOut, Truck } from "lucide-react";
+import { Home, BookOpen, Users, BarChart3, Recycle, Store, LogIn, LogOut, Truck, User, Settings } from "lucide-react";
 import { NavLink } from "./NavLink";
-import { useSupabase } from "@/contexts/SupabaseContext";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
-const BottomNav = () => {
-  const { user, signOut } = useSupabase();
-  
+const BottomNavSimple = () => {
+  const navigate = useNavigate();
+
+  // Simple navigation items - always the same, no auth restrictions
   const navItems = [
     { icon: Home, label: "Home", path: "/home" },
     { icon: Truck, label: "Request", path: "/service-request" },
@@ -13,6 +14,11 @@ const BottomNav = () => {
     { icon: Users, label: "Community", path: "/community" },
     { icon: BarChart3, label: "Track", path: "/track-requests" },
   ];
+
+  const handleSignOut = () => {
+    localStorage.removeItem('nairobiWasteUser');
+    navigate('/auth');
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 pb-safe">
@@ -36,36 +42,9 @@ const BottomNav = () => {
             )}
           </NavLink>
         ))}
-        <div className="flex flex-col items-center justify-center gap-1 px-4 py-2">
-          {user ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={signOut}
-              className="h-8 w-8 p-0"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          ) : (
-            <NavLink
-              to="/auth"
-              className="flex flex-col items-center justify-center gap-1"
-              activeClassName="text-primary bg-primary/10"
-            >
-              {({ isActive }) => (
-                <>
-                  <LogIn className={`h-5 w-5 transition-transform ${
-                    isActive ? "scale-110" : ""
-                  }`} />
-                  <span className="text-xs font-medium">Sign In</span>
-                </>
-              )}
-            </NavLink>
-          )}
-        </div>
       </div>
     </nav>
   );
 };
 
-export default BottomNav;
+export default BottomNavSimple;
