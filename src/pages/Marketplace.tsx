@@ -33,10 +33,12 @@ const Marketplace = () => {
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [filters, setFilters] = useState({
-    wasteType: '',
+    wasteType: 'all',
     minPrice: '',
     maxPrice: '',
   });
+
+  console.log("Marketplace: rendering", { user: !!user, userEmail: user?.email, loading });
 
   const [newListing, setNewListing] = useState({
     wasteType: '',
@@ -50,6 +52,7 @@ const Marketplace = () => {
 
   // Fetch listings
   useEffect(() => {
+    console.log("Marketplace: useEffect for fetchListings/Transactions, user changed");
     fetchListings();
     if (user) {
       fetchTransactions();
@@ -61,9 +64,11 @@ const Marketplace = () => {
   }, [listings, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchListings = async () => {
+    console.log("Marketplace: fetchListings starting");
     try {
       setLoading(true);
       const data = await wasteListingService.getListings();
+      console.log("Marketplace: fetchListings success", { count: data?.length });
       setListings(data || []);
       setLoading(false);
     } catch (error: unknown) {
@@ -152,7 +157,7 @@ const Marketplace = () => {
   const applyFilters = () => {
     let filtered = listings;
 
-    if (filters.wasteType) {
+    if (filters.wasteType && filters.wasteType !== 'all') {
       filtered = filtered.filter(l => l.wasteType === filters.wasteType);
     }
 
@@ -359,7 +364,7 @@ const Marketplace = () => {
                     <SelectValue placeholder="All types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All types</SelectItem>
+                    <SelectItem value="all">All types</SelectItem>
                     {wasteTypes.map(type => (
                       <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
                     ))}
@@ -385,7 +390,7 @@ const Marketplace = () => {
                 />
               </div>
               <div className="flex items-end">
-                <Button variant="outline" onClick={() => setFilters({ wasteType: '', minPrice: '', maxPrice: '' })}>
+                <Button variant="outline" onClick={() => setFilters({ wasteType: 'all', minPrice: '', maxPrice: '' })}>
                   Clear Filters
                 </Button>
               </div>

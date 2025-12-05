@@ -51,6 +51,7 @@ const AuthWorking = () => {
     businessName: '',
     phone: '',
     name: '',
+    role: 'buyer',
   });
 
   // Check if user is already signed in (from localStorage)
@@ -60,6 +61,10 @@ const AuthWorking = () => {
       const user = JSON.parse(savedUser);
       setCurrentUser(user);
       setIsSignedIn(true);
+
+      if (user.role === 'buyer' || user.role === 'seller') {
+        localStorage.setItem('nairobiWasteRole', user.role);
+      }
     }
   });
 
@@ -77,9 +82,11 @@ const AuthWorking = () => {
       );
 
       if (user) {
-        // Save user to localStorage
-        const userToSave = { ...user, password: undefined }; // Remove password from saved user
+        // Map existing mock roles to buyer/seller
+        const mappedRole = user.role === 'collector' ? 'seller' : 'buyer';
+        const userToSave = { ...user, role: mappedRole, password: undefined } as any; // Remove password from saved user
         localStorage.setItem('nairobiWasteUser', JSON.stringify(userToSave));
+        localStorage.setItem('nairobiWasteRole', mappedRole);
         setCurrentUser(userToSave);
         setIsSignedIn(true);
 
@@ -88,8 +95,8 @@ const AuthWorking = () => {
           description: `Successfully signed in as ${user.name}`,
         });
 
-        // Navigate to home page
-        navigate('/home');
+        // Navigate to marketplace so user lands on buyer/seller dashboard
+        navigate('/marketplace');
       } else {
         toast({
           title: "Sign In Failed ❌",
@@ -146,11 +153,12 @@ const AuthWorking = () => {
         name: signUpForm.name,
         businessName: signUpForm.businessName,
         phone: signUpForm.phone,
-        role: 'customer'
+        role: signUpForm.role || 'buyer',
       };
 
       // Save to localStorage
       localStorage.setItem('nairobiWasteUser', JSON.stringify(newUser));
+      localStorage.setItem('nairobiWasteRole', newUser.role);
       setCurrentUser(newUser);
       setIsSignedIn(true);
 
@@ -159,8 +167,8 @@ const AuthWorking = () => {
         description: `Welcome to Nairobi Waste Tracking, ${newUser.name}!`,
       });
 
-      // Navigate to home page
-      navigate('/home');
+      // Navigate to marketplace so user lands on buyer/seller dashboard
+      navigate('/marketplace');
 
     } catch (error) {
       toast({

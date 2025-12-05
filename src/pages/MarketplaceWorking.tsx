@@ -58,7 +58,7 @@ const MarketplaceWorking = () => {
   const [loading, setLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [filters, setFilters] = useState({
-    wasteType: '',
+    wasteType: 'all',
     minPrice: '',
     maxPrice: '',
   });
@@ -133,7 +133,7 @@ const MarketplaceWorking = () => {
   useEffect(() => {
     let filteredListings = listings;
     
-    if (filters.wasteType) {
+    if (filters.wasteType && filters.wasteType !== 'all') {
       filteredListings = filteredListings.filter(listing => listing.wasteType === filters.wasteType);
     }
     
@@ -244,7 +244,7 @@ const MarketplaceWorking = () => {
                     <SelectValue placeholder="All types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All types</SelectItem>
+                    <SelectItem value="all">All types</SelectItem>
                     <SelectItem value="plastic">Plastic</SelectItem>
                     <SelectItem value="organic">Organic</SelectItem>
                     <SelectItem value="electronic">Electronic</SelectItem>
@@ -274,7 +274,7 @@ const MarketplaceWorking = () => {
               <div className="flex items-end">
                 <Button 
                   variant="outline" 
-                  onClick={() => setFilters({ wasteType: '', minPrice: '', maxPrice: '' })}
+                  onClick={() => setFilters({ wasteType: 'all', minPrice: '', maxPrice: '' })}
                 >
                   Clear Filters
                 </Button>

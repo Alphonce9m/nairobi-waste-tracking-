@@ -357,16 +357,37 @@ const MarketplaceFixed = () => {
                   </div>
                   
                   <div className="mt-6 pt-4 border-t border-gray-200">
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center gap-3">
                       <div>
                         <p className="text-xs text-gray-500">Total Value</p>
                         <span className="text-xl font-bold text-green-600">
                           KES {listing.quantity * listing.pricePerKg}
                         </span>
                       </div>
-                      <Button className="bg-green-600 hover:bg-green-700">
-                        📞 Contact
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={() => {
+                            window.location.href = "tel:+254723065707";
+                          }}
+                        >
+                          📞 Call
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const message = encodeURIComponent(
+                              `Hi, I'm interested in buying ${listing.quantity} kg of ${listing.wasteType} waste at KES ${listing.pricePerKg}/kg from the Nairobi Waste app.`,
+                            );
+                            const url = `https://wa.me/254723065707?text=${message}`;
+                            window.open(url, "_blank");
+                          }}
+                        >
+                          WhatsApp
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </Card>

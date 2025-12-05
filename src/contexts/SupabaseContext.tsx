@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { createClient } from '@/utils/supabase/client';
+import { secureStorage } from "@/utils/storage";
 
 type AuthContextType = {
   user: User | null;
@@ -23,16 +24,29 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient();
+    console.log("SupabaseContext: initializing auth");
+    
+    // Check for mock user first
+    const mockUser = secureStorage.getMockUser();
+    if (mockUser) {
+      console.log("SupabaseContext: using mock user", mockUser);
+      setUser(mockUser as any);
+      setSession({ user: mockUser, access_token: "mock" } as any);
+      setLoading(false);
+      return;
+    }
     
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("SupabaseContext: initial session loaded", { hasSession: !!session, userEmail: session?.user?.email });
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("SupabaseContext: auth state change", { event, hasSession: !!session, userEmail: session?.user?.email });
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
