@@ -88,13 +88,7 @@ const AuthSupabase = () => {
           variant: "destructive",
         });
 
-        // Fallback: create mock session to allow marketplace access
-        console.log("AuthSupabase: using fallback mock session");
-        secureStorage.setRole("buyer");
-        secureStorage.setMockUser(sanitizedEmail);
-        setTimeout(() => {
-          window.location.href = "/marketplace";
-        }, 1000);
+        // Authentication failed, no fallback to demo account
         return;
       }
 
@@ -432,18 +426,6 @@ const AuthSupabase = () => {
           </Tabs>
         </Card>
 
-        <div className="mt-4 text-center">
-          <Button
-            variant="outline"
-            onClick={() => {
-              secureStorage.setRole("buyer");
-              secureStorage.setMockUser("demo@example.com");
-              window.location.href = "/marketplace";
-            }}
-          >
-            Skip to Marketplace (Demo)
-          </Button>
-        </div>
       </div>
     </div>
   );

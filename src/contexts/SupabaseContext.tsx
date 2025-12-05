@@ -26,16 +26,6 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
     console.log("SupabaseContext: initializing auth");
     
-    // Check for mock user first
-    const mockUser = secureStorage.getMockUser();
-    if (mockUser) {
-      console.log("SupabaseContext: using mock user", mockUser);
-      setUser(mockUser as any);
-      setSession({ user: mockUser, access_token: "mock" } as any);
-      setLoading(false);
-      return;
-    }
-    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log("SupabaseContext: initial session loaded", { hasSession: !!session, userEmail: session?.user?.email });

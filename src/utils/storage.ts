@@ -48,32 +48,6 @@ export const secureStorage = {
 
   getRole: (): 'buyer' | 'seller' | null => {
     const role = secureStorage.get('nairobiWasteRole');
-    if (role === 'buyer' || role === 'seller') {
-      return role;
-    }
-    return null;
-  },
-
-  setMockUser: (email: string) => {
-    if (!email || !email.includes('@')) {
-      throw new Error('Invalid email');
-    }
-    secureStorage.set('mockUser', { email, timestamp: Date.now() });
-  },
-
-  getMockUser: () => {
-    const user = secureStorage.get('mockUser');
-    if (user && user.email && user.timestamp) {
-      // Optional: expire mock users after 24 hours
-      const now = Date.now();
-      const age = now - user.timestamp;
-      const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-      if (age < maxAge) {
-        return user;
-      } else {
-        secureStorage.remove('mockUser');
-      }
-    }
-    return null;
+    return role === 'buyer' || role === 'seller' ? role : null;
   },
 };
