@@ -42,7 +42,7 @@ const MarketplaceFixed = () => {
   const [filtered, setFiltered] = useState<WasteListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
-    wasteType: '',
+    wasteType: 'all',
     minPrice: '',
     maxPrice: '',
   });
@@ -147,7 +147,7 @@ const MarketplaceFixed = () => {
   useEffect(() => {
     let filteredListings = listings;
     
-    if (filters.wasteType) {
+    if (filters.wasteType && filters.wasteType !== 'all') {
       filteredListings = filteredListings.filter(listing => listing.wasteType === filters.wasteType);
     }
     
@@ -268,7 +268,7 @@ const MarketplaceFixed = () => {
                     <SelectValue placeholder="📦 All types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">📦 All types</SelectItem>
+                    <SelectItem value="all">📦 All types</SelectItem>
                     <SelectItem value="plastic">♻️ Plastic</SelectItem>
                     <SelectItem value="organic">🌱 Organic</SelectItem>
                     <SelectItem value="electronic">📱 Electronic</SelectItem>
@@ -300,7 +300,7 @@ const MarketplaceFixed = () => {
               <div className="flex items-end">
                 <Button 
                   variant="outline" 
-                  onClick={() => setFilters({ wasteType: '', minPrice: '', maxPrice: '' })}
+                  onClick={() => setFilters({ wasteType: 'all', minPrice: '', maxPrice: '' })}
                   className="border-green-200 hover:bg-green-50"
                 >
                   🔄 Clear
