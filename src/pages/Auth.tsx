@@ -90,8 +90,15 @@ const Auth = () => {
       });
 
       toast({
-        title: "Account created!",
-        description: "Please check your email to verify your account",
+        title: "Account created! 🎉",
+        description: (
+          <div className="space-y-2">
+            <p>We've sent a verification email to <strong>{signUpForm.email}</strong></p>
+            <p className="font-semibold text-yellow-600">Important: Check your inbox and click the verification link to activate your account.</p>
+            <p className="text-sm text-muted-foreground">Can't find the email? Check your spam/junk folder.</p>
+          </div>
+        ),
+        duration: 10000, // Show for 10 seconds
       });
 
       // Reset form
