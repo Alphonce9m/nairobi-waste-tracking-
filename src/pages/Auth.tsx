@@ -1,207 +1,442 @@
-import { useState } from "react";
-import { Card } from "@/components/ui/card";
+import { useState, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { secureStorage } from "@/utils/storage";
 import { useToast } from "@/hooks/use-toast";
+import { validateEmail, validatePassword, sanitizeInput } from "@/utils/validation";
+import { Mail, Lock, Recycle } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
+import { AuthState, initialAuthState, SignInFormData, SignUpFormData, UserRole } from "@/types/auth";
 import { useSupabase } from "@/contexts/SupabaseContext";
-import { authService } from "@/services/authService";
-import { Loader2, Mail, Lock, User, Phone, Building } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
-const Auth = () => {
+// Use types from @/types/auth
+
+const Auth: React.FC = () => {
   const { user, loading } = useSupabase();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [authLoading, setAuthLoading] = useState(false);
+  const supabase = createClient();
 
-  // Sign In Form
-  const [signInForm, setSignInForm] = useState({
-    email: '',
-    password: '',
-  });
+  const [state, setState] = useState<AuthState>(initialAuthState);
+  
+  // Destructure state for easier access
+  const {
+    signIn,
+    signUp,
+    resetEmail,
+    resetStatus,
+    signInRole,
+    showForgotPassword,
+    showSignInButton,
+    lastSignedUpEmail,
+    authLoading
+  } = state;
 
-  // Sign Up Form
-  const [signUpForm, setSignUpForm] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    businessName: '',
-    businessType: '',
-    contactPerson: '',
-    phoneNumber: '',
-    address: '',
-  });
+  // Helper function to update state
+  const updateState = (updates: Partial<AuthState>): void => {
+    setState(prev => ({
+      ...prev,
+      ...updates,
+      // Handle nested state updates
+      ...(updates.signIn && { signIn: { ...prev.signIn, ...updates.signIn } }),
+      ...(updates.signUp && { signUp: { ...prev.signUp, ...updates.signUp } }),
+    }));
+  };
 
-  // Reset Password Form
-  const [resetEmail, setResetEmail] = useState('');
+  // Handle role selection
+  const handleRoleSelect = (role: UserRole) => {
+    if (role) {
+      updateState({
+        signInRole: role
+      });
+      // Optionally store the role in secure storage if needed
+      // secureStorage.setRole(role);
+    }
+  };
 
-  // If already logged in, redirect to marketplace
-  if (user && !loading) {
-    navigate('/marketplace');
-    return null;
-  }
+  // Handle form input changes
+  const handleSignInEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateState({
+      signIn: {
+        ...signIn,
+        email: e.target.value
+      }
+    });
+  };
+
+  const handleSignInPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateState({
+      signIn: {
+        ...signIn,
+        password: e.target.value
+      }
+    });
+  };
+
+  // Handle sign up form changes
+  const handleSignUpEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateState({
+      signUp: {
+        ...signUp,
+        email: e.target.value
+      }
+    });
+  };
+
+  const handleSignUpPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateState({
+      signUp: {
+        ...signUp,
+        password: e.target.value
+      }
+    });
+  };
+
+  const handleSignUpConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateState({
+      signUp: {
+        ...signUp,
+        confirmPassword: e.target.value
+      }
+    });
+  };
+
+  const handleForgotPassword = async (e: FormEvent): Promise<void> => {
+    e.preventDefault();
+    if (!validateEmail(resetEmail)) {
+      updateState({
+        resetStatus: { type: 'error', message: 'Please enter a valid email address' },
+      });
+      return;
+    }
+
+    updateState({ 
+      authLoading: true,
+      resetStatus: null
+    });
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) throw error;
+
+      updateState({
+        resetStatus: {
+        type: 'success',
+        message: 'Password reset email sent! Please check your inbox.',
+      },
+      authLoading: false
+    });
+    } catch (error) {
+      updateState({
+        resetStatus: {
+          type: 'error',
+          message: error instanceof Error ? error.message : 'Failed to send reset email',
+        },
+        authLoading: false
+      });
+    }
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthLoading(true);
-
-    try {
-      await authService.signIn(signInForm.email, signInForm.password);
+    
+    if (!validateEmail(signIn.email)) {
       toast({
-        title: "Welcome back!",
-        description: "You've been successfully signed in",
-      });
-      navigate('/marketplace');
-    } catch (error: unknown) {
-      const errorData = error as { message: string };
-      toast({
-        title: "Sign in failed",
-        description: errorData.message,
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
         variant: "destructive",
       });
+      return;
+    }
+
+    if (!validatePassword(signIn.password)) {
+      toast({
+        title: "Invalid Password",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateState({ authLoading: true });
+    try {
+      const sanitizedEmail = sanitizeInput(signIn.email);
+      const sanitizedPassword = sanitizeInput(signIn.password);
+
+      console.log("AuthSupabase: attempting sign in with", sanitizedEmail);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: sanitizedEmail,
+        password: sanitizedPassword,
+      });
+
+      console.log("AuthSupabase: supabase response", { data, error });
+
+      if (error || !data.session) {
+        let description = error?.message || "Invalid email or password";
+
+        if (error?.message?.toLowerCase().includes("invalid login credentials")) {
+          description = "Account not found or incorrect password. Please sign up first or check your credentials.";
+        } else if (error?.message?.toLowerCase().includes("email not confirmed")) {
+          description = "Please confirm your email first, then try signing in again.";
+        }
+
+        console.error("AuthSupabase: sign in failed", error);
+        toast({
+          title: "Sign In Failed",
+          description,
+          variant: "destructive",
+        });
+
+        // Authentication failed, no fallback to demo account
+        return;
+      }
+
+      console.log("AuthSupabase: sign in succeeded, session", data.session);
+      toast({
+        title: "Welcome back!",
+        description: `Signed in as ${sanitizedEmail}`,
+      });
+
+      // Handle role selection
+  const handleRoleSelect = (role: UserRole) => {
+    if (role) {
+      updateState({
+        signInRole: role
+      });
+      secureStorage.setRole(role);
+    }
+  };
+
+  // Set the role for sign in
+  if (signInRole) {
+    secureStorage.setRole(signInRole);
+  }
+
+      console.log("AuthSupabase: set role, waiting for Supabase user before navigating");
+
+      // Retry loop: wait until Supabase context updates with the user
+      let attempts = 0;
+      const maxAttempts = 20; // 2 seconds max
+      const checkUser = () => {
+        attempts++;
+        console.log(`AuthSupabase: checking Supabase user, attempt ${attempts}`);
+        // Re-fetch current session to verify
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          console.log("AuthSupabase: getSession result", !!session);
+          if (session) {
+            console.log("AuthSupabase: session exists, navigating to /marketplace");
+            try {
+              navigate("/marketplace");
+              console.log("AuthSupabase: navigate called");
+            } catch (navError) {
+              console.error("AuthSupabase: navigate error", navError);
+              console.log("AuthSupabase: fallback using window.location");
+              window.location.href = "/marketplace";
+            }
+          } else if (attempts < maxAttempts) {
+            setTimeout(checkUser, 100);
+          } else {
+            console.error("AuthSupabase: failed to get session after retries, forcing redirect");
+            window.location.href = "/marketplace";
+          }
+        });
+      };
+      setTimeout(checkUser, 100);
     } finally {
-      setAuthLoading(false);
+      updateState({ authLoading: false });
     }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthLoading(true);
-
-    if (signUpForm.password !== signUpForm.confirmPassword) {
+    
+    if (!validateEmail(signUp.email)) {
       toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match",
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
         variant: "destructive",
       });
-      setAuthLoading(false);
       return;
     }
 
+    if (!validatePassword(signUp.password)) {
+      toast({
+        title: "Invalid Password",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (signUp.password !== signUp.confirmPassword) {
+      toast({
+        title: "Passwords Don't Match",
+        description: "Please make sure your passwords match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateState({ authLoading: true });
+
     try {
-      await authService.signUp(signUpForm.email, signUpForm.password, {
-        business_name: signUpForm.businessName,
-        business_type: signUpForm.businessType,
-        contact_person: signUpForm.contactPerson,
-        phone_number: signUpForm.phoneNumber,
-        address: signUpForm.address,
+      const sanitizedEmail = sanitizeInput(signUp.email);
+      const sanitizedPassword = sanitizeInput(signUp.password);
+
+      const { data, error } = await supabase.auth.signUp({
+        email: sanitizedEmail,
+        password: sanitizedPassword,
+        options: {
+          data: {
+            full_name: signUp.fullName,
+            role: signUp.role,
+            phone: signUp.phone,
+          },
+        },
       });
 
+      if (error || !data.user) {
+        throw error || new Error("Failed to create user");
+      }
+
+      // Create user profile in the database
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert({
+            id: data.user.id,
+            email: sanitizedEmail,
+            full_name: signUp.fullName,
+            role: signUp.role,
+            phone: signUp.phone,
+            updated_at: new Date().toISOString(),
+          });
+
+        if (profileError) throw profileError;
+      }
+
       toast({
-        title: "Account created! 🎉",
-        description: (
-          <div className="space-y-2">
-            <p>We've sent a verification email to <strong>{signUpForm.email}</strong></p>
-            <p className="font-semibold text-yellow-600">Important: Check your inbox and click the verification link to activate your account.</p>
-            <p className="text-sm text-muted-foreground">Can't find the email? Check your spam/junk folder.</p>
-          </div>
-        ),
-        duration: 10000, // Show for 10 seconds
+        title: "Account created!",
+        description: `You can now sign in as a ${signUp.role}.`,
       });
 
       // Reset form
-      setSignUpForm({
-        email: '',
-        password: '',
-        confirmPassword: '',
-        businessName: '',
-        businessType: '',
-        contactPerson: '',
-        phoneNumber: '',
-        address: '',
+      updateState({
+        lastSignedUpEmail: signUp.email,
+        signUp: {
+          ...signUp,
+          email: "",
+          password: "",
+          confirmPassword: ""
+        },
+        showSignInButton: true,
+        authLoading: false
       });
-    } catch (error: unknown) {
-      const errorData = error as { message: string };
+
+    } catch (error) {
+      console.error('Sign up error:', error);
       toast({
-        title: "Sign up failed",
-        description: errorData.message,
+        title: "Error creating account",
+        description: error?.message || "Unable to create account",
         variant: "destructive",
       });
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthLoading(true);
-
-    try {
-      await authService.resetPassword(resetEmail);
-      toast({
-        title: "Reset email sent",
-        description: "Check your email for password reset instructions",
-      });
-      setResetEmail('');
-    } catch (error: unknown) {
-      const errorData = error as { message: string };
-      toast({
-        title: "Reset failed",
-        description: errorData.message,
-        variant: "destructive",
-      });
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      await authService.signInWithGoogle();
-    } catch (error: unknown) {
-      const errorData = error as { message: string };
-      toast({
-        title: "Google sign in failed",
-        description: errorData.message,
-        variant: "destructive",
-      });
+      updateState({ authLoading: false });
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50">
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    );
+  }
+
+  if (user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 p-4">
+        <Card className="w-full max-w-md p-8 shadow-xl text-center space-y-6">
+          <div>
+            <Recycle className="h-10 w-10 text-green-600 mx-auto mb-2" />
+            <h2 className="text-2xl font-bold">You are already signed in</h2>
+            <p className="text-gray-600 break-all">{user.email}</p>
+          </div>
+          <div className="space-y-3">
+            <Button className="w-full bg-green-600 hover:bg-green-700" onClick={() => navigate("/marketplace")}>Go to Marketplace</Button>
+          </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-4xl">
-        <div className="p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              Nairobi Waste Marketplace
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-3xl">
+        <div className="text-center mb-8">
+          <div className="flex justify-center items-center gap-3 mb-4">
+            <Recycle className="h-12 w-12 text-green-600" />
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
+              Nairobi Waste Tracking
             </h1>
-            <p className="text-muted-foreground">
-              Connect, trade, and transform waste into value
-            </p>
           </div>
+          <p className="text-gray-600 text-lg">Sign in or create an account to access the marketplace</p>
+        </div>
 
+        <Card className="shadow-xl">
           <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-              <TabsTrigger value="reset">Reset</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-gray-100 p-1 rounded-lg mb-6">
+              <TabsTrigger value="signin" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                Sign In
+              </TabsTrigger>
+              <TabsTrigger value="signup" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+                Sign Up
+              </TabsTrigger>
             </TabsList>
 
-            {/* Sign In Tab */}
-            <TabsContent value="signin" className="mt-6">
-              <form onSubmit={handleSignIn} className="space-y-4">
+            <TabsContent value="signin" className="p-8">
+              <form onSubmit={handleSignIn} className="space-y-6">
+                {!signInRole && (
+                  <div>
+                    <Label>I am a:</Label>
+                    <div className="flex gap-4 mt-2">
+                      <Button
+                        type="button"
+                        variant={signInRole === "buyer" ? "default" : "outline"}
+                        onClick={() => handleRoleSelect("buyer")}
+                        className="flex-1"
+                      >
+                        Buyer
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={signInRole === "seller" ? "default" : "outline"}
+                        onClick={() => handleRoleSelect("seller")}
+                        className="flex-1"
+                      >
+                        Seller
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <Label htmlFor="signin-email">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <Input
                       id="signin-email"
                       type="email"
-                      placeholder="your@email.com"
+                      placeholder="you@example.com"
+                      value={signIn.email}
+                      onChange={handleSignInEmailChange}
                       className="pl-10"
-                      value={signInForm.email}
-                      onChange={(e) => setSignInForm({...signInForm, email: e.target.value})}
                       required
                     />
                   </div>
@@ -210,145 +445,129 @@ const Auth = () => {
                 <div>
                   <Label htmlFor="signin-password">Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <Input
                       id="signin-password"
                       type="password"
-                      placeholder="••••••••"
+                      placeholder="Your password"
+                      value={signIn.password}
+                      onChange={handleSignInPasswordChange}
                       className="pl-10"
-                      value={signInForm.password}
-                      onChange={(e) => setSignInForm({...signInForm, password: e.target.value})}
                       required
                     />
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={authLoading}>
-                  {authLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Signing in...
-                    </>
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-
-                <Button type="button" variant="outline" className="w-full" onClick={handleGoogleSignIn}>
-                  <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                  Sign in with Google
-                </Button>
+                <div className="flex flex-col space-y-4">
+                  <Button type="submit" className="w-full" disabled={authLoading}>
+                    {authLoading ? "Signing in..." : "Sign In"}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => updateState({ showForgotPassword: true })}
+                    className="text-sm text-blue-600 hover:underline text-center"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
               </form>
             </TabsContent>
 
-            {/* Sign Up Tab */}
-            <TabsContent value="signup" className="mt-6">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="business-name">Business Name</Label>
-                    <div className="relative">
-                      <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="business-name"
-                        placeholder="Your business name"
-                        className="pl-10"
-                        value={signUpForm.businessName}
-                        onChange={(e) => setSignUpForm({...signUpForm, businessName: e.target.value})}
-                        required
-                      />
-                    </div>
-                  </div>
+            {showForgotPassword && (
+              <TabsContent value="signin">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-2xl font-bold text-center">
+                      Reset Password
+                    </CardTitle>
+                    <CardDescription className="text-center">
+                      Enter your email and we'll send you a link to reset your password.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {resetStatus && (
+                      <div className={`p-3 rounded-md ${
+                        resetStatus.type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                      }`}>
+                        {resetStatus.message}
+                      </div>
+                    )}
+                    <form onSubmit={handleForgotPassword} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="reset-email">Email</Label>
+                        <Input
+                          id="reset-email"
+                          type="email"
+                          placeholder="your@email.com"
+                          value={resetEmail}
+                          onChange={(e) => updateState({ resetEmail: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="flex flex-col space-y-2">
+                        <Button type="submit" className="w-full" disabled={authLoading}>
+                          {authLoading ? 'Sending...' : 'Send Reset Link'}
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => updateState({ showForgotPassword: false, resetStatus: null })}
+                          className="text-sm text-gray-600 hover:underline text-center"
+                        >
+                          Back to Sign In
+                        </button>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
 
-                  <div>
-                    <Label htmlFor="business-type">Business Type</Label>
-                    <select
-                      id="business-type"
-                      className="w-full p-2 border rounded-md"
-                      value={signUpForm.businessType}
-                      onChange={(e) => setSignUpForm({...signUpForm, businessType: e.target.value})}
-                      required
-                    >
-                      <option value="">Select type</option>
-                      <option value="recycler">Recycler</option>
-                      <option value="manufacturer">Manufacturer</option>
-                      <option value="retailer">Retailer</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="contact-person">Contact Person</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="contact-person"
-                        placeholder="Full name"
-                        className="pl-10"
-                        value={signUpForm.contactPerson}
-                        onChange={(e) => setSignUpForm({...signUpForm, contactPerson: e.target.value})}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="phone"
-                        placeholder="+254 700 000 000"
-                        className="pl-10"
-                        value={signUpForm.phoneNumber}
-                        onChange={(e) => setSignUpForm({...signUpForm, phoneNumber: e.target.value})}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
+            <TabsContent value="signup" className="p-8">
+              <form onSubmit={handleSignUp} className="space-y-6">
                 <div>
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    placeholder="Your business address in Nairobi"
-                    value={signUpForm.address}
-                    onChange={(e) => setSignUpForm({...signUpForm, address: e.target.value})}
-                    required
-                  />
+                  <Label>I am signing up as:</Label>
+                  <div className="flex gap-4 mt-2">
+                    <Button
+                      type="button"
+                      variant={signUp.role === "buyer" ? "default" : "outline"}
+                      onClick={() => updateState({
+                        signUp: {
+                          ...signUp,
+                          role: "buyer"
+                        }
+                      })}
+                      className="flex-1"
+                    >
+                      Buyer
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={signUp.role === "seller" ? "default" : "outline"}
+                      onClick={() => updateState({
+                        signUp: {
+                          ...signUp,
+                          role: "seller"
+                        }
+                      })}
+                      className="flex-1"
+                    >
+                      Seller
+                    </Button>
+                  </div>
                 </div>
 
                 <div>
                   <Label htmlFor="signup-email">Email</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                     <Input
                       id="signup-email"
+                      name="email"
                       type="email"
-                      placeholder="your@email.com"
+                      placeholder="you@example.com"
+                      value={signUp.email}
+                      onChange={handleSignUpEmailChange}
                       className="pl-10"
-                      value={signUpForm.email}
-                      onChange={(e) => setSignUpForm({...signUpForm, email: e.target.value})}
                       required
                     />
                   </div>
@@ -358,83 +577,72 @@ const Auth = () => {
                   <div>
                     <Label htmlFor="signup-password">Password</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                       <Input
                         id="signup-password"
                         type="password"
-                        placeholder="••••••••"
+                        placeholder="Create a password"
+                        value={signUp.password}
+                        onChange={handleSignUpPasswordChange}
                         className="pl-10"
-                        value={signUpForm.password}
-                        onChange={(e) => setSignUpForm({...signUpForm, password: e.target.value})}
                         required
+                        minLength={6}
                       />
                     </div>
                   </div>
-
                   <div>
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
+                    <Label htmlFor="signup-confirm">Confirm Password</Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                       <Input
-                        id="confirm-password"
+                        id="signup-confirm"
                         type="password"
-                        placeholder="••••••••"
+                        placeholder="Repeat password"
+                        value={signUp.confirmPassword}
+                        onChange={handleSignUpConfirmPasswordChange}
                         className="pl-10"
-                        value={signUpForm.confirmPassword}
-                        onChange={(e) => setSignUpForm({...signUpForm, confirmPassword: e.target.value})}
                         required
+                        minLength={6}
                       />
                     </div>
                   </div>
                 </div>
 
-                <Button type="submit" className="w-full" disabled={authLoading}>
-                  {authLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating account...
-                    </>
-                  ) : (
-                    "Create Account"
-                  )}
+                <Button
+                  type="submit"
+                  className="w-full bg-green-600 hover:bg-green-700 py-3"
+                  disabled={authLoading}
+                >
+                  {authLoading ? "Creating account..." : "Create Account"}
                 </Button>
-              </form>
-            </TabsContent>
 
-            {/* Reset Password Tab */}
-            <TabsContent value="reset" className="mt-6">
-              <form onSubmit={handleResetPassword} className="space-y-4">
-                <div>
-                  <Label htmlFor="reset-email">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="reset-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      className="pl-10"
-                      value={resetEmail}
-                      onChange={(e) => setResetEmail(e.target.value)}
-                      required
-                    />
+                {showSignInButton && (
+                  <div className="mt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full py-3"
+                      onClick={() => {
+                        updateState({
+                          signIn: {
+                            ...signIn,
+                            email: lastSignedUpEmail,
+                            password: ""
+                          },
+                          showSignInButton: false
+                        });
+                      }}
+                    >
+                      Sign In Now
+                    </Button>
                   </div>
-                </div>
-
-                <Button type="submit" className="w-full" disabled={authLoading}>
-                  {authLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending reset email...
-                    </>
-                  ) : (
-                    "Send Reset Email"
-                  )}
-                </Button>
+                )}
               </form>
             </TabsContent>
           </Tabs>
-        </div>
-      </Card>
+        </Card>
+
+      </div>
     </div>
   );
 };

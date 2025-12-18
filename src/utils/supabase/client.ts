@@ -1,17 +1,29 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-// Using hardcoded values for now
-const supabaseUrl = 'https://vhvfcccgtmwzpuphlepr.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZodmZjY2NndG13enB1cGhsZXByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4MDc1NTIsImV4cCI6MjA3OTM4MzU1Mn0.zT0qaL92YhVB4Ht21TeciBvQOIwUX6Zwsvj39gYGy3s';
+// Get Supabase URL and key from environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const createClient = () =>
-  createSupabaseClient(
-    supabaseUrl,
-    supabaseKey,
-    {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-      },
-    }
-  );
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('Missing Supabase environment variables. Please check your .env file.');
+}
+
+// Create and export the default client instance
+export const supabase = createSupabaseClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});
+
+// Also export the createClient function for cases where a new instance is needed
+export const createClient = () => createSupabaseClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});
+
+// Admin client has been removed from the browser bundle for security reasons.
+// The admin client should only be used in server-side code through API routes.
+// This prevents exposing admin credentials in the browser.

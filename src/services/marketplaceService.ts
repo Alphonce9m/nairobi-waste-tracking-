@@ -1,7 +1,14 @@
 import { createClient } from '@/utils/supabase/client';
 import { BuyerProfile, WasteListing, Transaction } from '@/types/marketplace';
+import { realtimeService } from './realtimeService';
 
 const supabase = createClient();
+
+type RealtimeCallback = (payload: {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new: any;
+  old: any;
+}) => void;
 
 // Buyer Profile Services
 export const buyerProfileService = {
@@ -51,19 +58,34 @@ export const buyerProfileService = {
 };
 
 // Waste Listing Services
-export const wasteListingService = {
+export const listingService = {
   async createListing(listing: Omit<WasteListing, 'id' | 'createdAt' | 'updatedAt'>) {
     const { data, error } = await supabase
       .from('waste_listings')
-      .insert(listing)
+      .insert({
+        ...listing,
+        status: 'available',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      })
       .select()
       .single();
     
     if (error) throw error;
-    return data;
+    return { data, error };
   },
-
-  async getListings(filters?: {
+  
+  subscribeToListings(callback: RealtimeCallback) {
+    return realtimeService.subscribeToTable('waste_listings', (payload) => {
+      callback({
+        eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+        new: payload.new,
+        old: payload.old
+      });
+    });
+  },
+  
+  async getListings(filters: {
     wasteType?: string;
     status?: string;
     minPrice?: number;

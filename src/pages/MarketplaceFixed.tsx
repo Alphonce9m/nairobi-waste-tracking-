@@ -1,514 +1,485 @@
-import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 import { 
-  Search, 
-  Plus, 
-  Filter, 
-  Package, 
-  MapPin, 
-  Calendar, 
-  Clock,
-  TrendingUp,
-  DollarSign,
-  Scale
-} from "lucide-react";
+  Search, Filter, MapPin, Clock, Star, Phone, MessageCircle,
+  TrendingUp, Package, DollarSign, Calendar, User, Heart,
+  Grid3X3, List, RefreshCw, Loader2
+} from 'lucide-react';
+import { useSupabase } from '@/contexts/SupabaseContext';
+import { WasteListing, WasteType } from '@/types/marketplace';
+import { listingService } from '@/services/marketplaceService';
 
-// Mock types - no external dependencies
-interface WasteListing {
-  id: string;
-  sellerId: string;
-  wasteType: 'plastic' | 'organic' | 'electronic' | 'hazardous' | 'mixed';
-  quantity: number;
-  pricePerKg: number;
-  availableFrom: string;
-  availableUntil: string;
-  status: 'available' | 'reserved' | 'sold' | 'expired';
+interface Filters {
+  wasteType: string;
+  minPrice: string;
+  maxPrice: string;
   location: string;
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
+  sortBy: string;
 }
 
-const MarketplaceFixed = () => {
+const MarketplaceFixed: React.FC = () => {
+  const { user } = useSupabase();
   const { toast } = useToast();
+  
   const [listings, setListings] = useState<WasteListing[]>([]);
-  const [filtered, setFiltered] = useState<WasteListing[]>([]);
+  const [filteredListings, setFilteredListings] = useState<WasteListing[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const [filters, setFilters] = useState<Filters>({
     wasteType: 'all',
     minPrice: '',
     maxPrice: '',
+    location: '',
+    sortBy: 'newest'
   });
 
   const [newListing, setNewListing] = useState({
-    wasteType: '',
-    quantity: '',
-    pricePerKg: '',
-    availableFrom: '',
-    availableUntil: '',
-    location: '',
+    title: '',
     description: '',
+    wasteType: '' as WasteType,
+    quantity: 0,
+    pricePerUnit: 0,
+    location: '',
+    availableFrom: new Date().toISOString(),
+    availableUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
   });
 
-  // Initialize with mock data
   useEffect(() => {
-    const mockListings: WasteListing[] = [
-      {
-        id: '1',
-        sellerId: 'seller-1',
-        wasteType: 'plastic',
-        quantity: 100,
-        pricePerKg: 25,
-        location: 'Kilimani, Nairobi',
-        description: 'Clean plastic bottles and containers - PET, HDPE, PP plastics',
-        status: 'available',
-        availableFrom: new Date().toISOString(),
-        availableUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: '2',
-        sellerId: 'seller-2',
-        wasteType: 'organic',
-        quantity: 50,
-        pricePerKg: 15,
-        location: 'Westlands, Nairobi',
-        description: 'Food waste, vegetable scraps, and organic materials',
-        status: 'available',
-        availableFrom: new Date().toISOString(),
-        availableUntil: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: '3',
-        sellerId: 'seller-3',
-        wasteType: 'electronic',
-        quantity: 25,
-        pricePerKg: 50,
-        location: 'Industrial Area, Nairobi',
-        description: 'Electronic waste - computers, phones, and electronic components',
-        status: 'available',
-        availableFrom: new Date().toISOString(),
-        availableUntil: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: '4',
-        sellerId: 'seller-4',
-        wasteType: 'hazardous',
-        quantity: 10,
-        pricePerKg: 100,
-        location: 'Kasarani, Nairobi',
-        description: 'Batteries, chemicals, and hazardous electronic waste',
-        status: 'available',
-        availableFrom: new Date().toISOString(),
-        availableUntil: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: '5',
-        sellerId: 'seller-5',
-        wasteType: 'mixed',
-        quantity: 75,
-        pricePerKg: 20,
-        location: 'Eastlands, Nairobi',
-        description: 'Mixed recyclable materials - paper, plastic, and metal',
-        status: 'available',
-        availableFrom: new Date().toISOString(),
-        availableUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ];
-    
-    setTimeout(() => {
-      setListings(mockListings);
-      setFiltered(mockListings);
-      setLoading(false);
-      
-      toast({
-        title: "🎉 Marketplace Loaded!",
-        description: `Found ${mockListings.length} waste listings available`,
-      });
-    }, 1000);
+    const loadListings = async () => {
+      try {
+        setLoading(true);
+        const data = await listingService.getListings({
+          status: 'available'
+        });
+
+        setListings(data || []);
+        
+        toast({
+          title: "Marketplace Loaded",
+          description: `Found ${data?.length || 0} listings`,
+        });
+      } catch (error) {
+        console.error('Error loading listings:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load marketplace listings",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadListings();
   }, [toast]);
 
   useEffect(() => {
-    let filteredListings = listings;
-    
-    if (filters.wasteType && filters.wasteType !== 'all') {
-      filteredListings = filteredListings.filter(listing => listing.wasteType === filters.wasteType);
-    }
-    
-    if (filters.minPrice) {
-      filteredListings = filteredListings.filter(listing => listing.pricePerKg >= parseFloat(filters.minPrice));
-    }
-    
-    if (filters.maxPrice) {
-      filteredListings = filteredListings.filter(listing => listing.pricePerKg <= parseFloat(filters.maxPrice));
-    }
-    
-    setFiltered(filteredListings);
-  }, [listings, filters]);
+    const filtered = listings.filter(listing => {
+      const matchesSearch = listing.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           listing.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesType = filters.wasteType === 'all' || listing.wasteType === filters.wasteType;
+      const matchesLocation = !filters.location || listing.location.address.toLowerCase().includes(filters.location.toLowerCase());
+      const matchesPrice = (!filters.minPrice || listing.pricePerUnit >= parseFloat(filters.minPrice)) &&
+                          (!filters.maxPrice || listing.pricePerUnit <= parseFloat(filters.maxPrice));
+      
+      return matchesSearch && matchesType && matchesLocation && matchesPrice;
+    });
 
-  const handleCreateListing = () => {
-    const mockListing: WasteListing = {
-      id: `mock-${Date.now()}`,
-      sellerId: 'current-user',
-      wasteType: newListing.wasteType as 'plastic' | 'organic' | 'electronic' | 'hazardous' | 'mixed',
-      quantity: parseFloat(newListing.quantity),
-      pricePerKg: parseFloat(newListing.pricePerKg),
-      location: newListing.location,
-      description: newListing.description,
-      status: 'available',
-      availableFrom: newListing.availableFrom,
-      availableUntil: newListing.availableUntil,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    filtered.sort((a, b) => {
+      switch (filters.sortBy) {
+        case 'newest':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'price_low':
+          return a.pricePerUnit - b.pricePerUnit;
+        case 'price_high':
+          return b.pricePerUnit - a.pricePerUnit;
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredListings(filtered);
+  }, [listings, filters, searchQuery]);
+
+  const toggleFavorite = useCallback((listingId: string) => {
+    setFavorites(prev => {
+      const newFavorites = new Set(prev);
+      if (newFavorites.has(listingId)) {
+        newFavorites.delete(listingId);
+      } else {
+        newFavorites.add(listingId);
+      }
+      return newFavorites;
+    });
+  }, []);
+
+  const handleCreateListing = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to create a listing",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const listingData = {
+        ...newListing,
+        sellerId: user.id,
+        wasteGrade: 'A' as const,
+        unit: 'kg' as const,
+        totalPrice: newListing.quantity * newListing.pricePerUnit,
+        location: {
+          address: newListing.location,
+          latitude: -1.2921, // Nairobi coordinates
+          longitude: 36.8219
+        },
+        images: [],
+        status: 'available' as const,
+        isNegotiable: false,
+        viewCount: 0,
+        saveCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      const result = await listingService.createListing(listingData);
+      if (result.error) throw result.error;
+
+      toast({
+        title: "Listing created!",
+        description: "Your waste listing has been posted successfully",
+      });
+
+      setNewListing({
+        title: '',
+        description: '',
+        wasteType: '' as WasteType,
+        quantity: 0,
+        pricePerUnit: 0,
+        location: '',
+        availableFrom: new Date().toISOString(),
+        availableUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      });
+
+      const data = await listingService.getListings({ status: 'available' });
+      setListings(data || []);
+
+    } catch (error) {
+      console.error('Error creating listing:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create listing",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getWasteTypeColor = (type: WasteType) => {
+    const colors = {
+      plastic: 'bg-blue-100 text-blue-800 border-blue-200',
+      organic: 'bg-green-100 text-green-800 border-green-200',
+      electronic: 'bg-purple-100 text-purple-800 border-purple-200',
+      hazardous: 'bg-red-100 text-red-800 border-red-200',
+      mixed: 'bg-orange-100 text-orange-800 border-orange-200'
     };
-    
-    setListings(prev => [mockListing, ...prev]);
-    setNewListing({
-      wasteType: '',
-      quantity: '',
-      pricePerKg: '',
-      availableFrom: '',
-      availableUntil: '',
-      location: '',
-      description: '',
-    });
-
-    toast({
-      title: "✅ Listing Created!",
-      description: `Your ${mockListing.wasteType} listing is now available`,
-    });
+    return colors[type] || 'bg-gray-100 text-gray-800 border-gray-200';
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'available': return 'bg-green-100 text-green-800 border-green-200';
-      case 'reserved': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'sold': return 'bg-red-100 text-red-800 border-red-200';
-      case 'expired': return 'bg-gray-100 text-gray-800 border-gray-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
+  const ListingCard = ({ listing }: { listing: WasteListing }) => (
+    <Card className="hover:shadow-lg transition-shadow duration-200 group">
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <CardTitle className="text-lg font-semibold line-clamp-1">{listing.title}</CardTitle>
+            <CardDescription className="mt-1 line-clamp-2">{listing.description}</CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFavorite(listing.id);
+            }}
+            className="ml-2"
+          >
+            <Heart className={`h-4 w-4 ${favorites.has(listing.id) ? 'fill-red-500 text-red-500' : ''}`} />
+          </Button>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Badge className={getWasteTypeColor(listing.wasteType)}>
+            {listing.wasteType}
+          </Badge>
+          <Badge className="bg-green-100 text-green-800">
+            {listing.status}
+          </Badge>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="flex items-center gap-1">
+            <Package className="h-4 w-4 text-muted-foreground" />
+            <span>{listing.quantity} kg</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <span className="font-semibold">KES {listing.pricePerUnit}/kg</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+            <span className="truncate">{listing.location.address}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span>{new Date(listing.availableUntil).toLocaleDateString()}</span>
+          </div>
+        </div>
 
-  const getWasteTypeColor = (type: string) => {
-    switch (type) {
-      case 'plastic': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'organic': return 'bg-green-100 text-green-800 border-green-200';
-      case 'electronic': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'hazardous': return 'bg-red-100 text-red-800 border-red-200';
-      case 'mixed': return 'bg-orange-100 text-orange-800 border-orange-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
+        {/* Seller info would need to be fetched separately */}
+        {/* {false && (
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                <User className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">{listing.seller.name}</p>
+                <div className="flex items-center gap-1">
+                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                  <span className="text-xs text-muted-foreground">
+                    {listing.seller.rating || 'New'} ({listing.seller.totalSales || 0} sales)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )} */}
+      </CardContent>
+
+      <div className="px-6 pb-4">
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1">
+            <MessageCircle className="h-4 w-4 mr-1" />
+            Contact
+          </Button>
+          <Button size="sm" className="flex-1">
+            <Phone className="h-4 w-4 mr-1" />
+            Call
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 pb-20 px-4 pt-6 max-w-screen-xl mx-auto">
-      {/* Header */}
-      <header className="mb-8 text-center">
-        <div className="flex justify-center items-center gap-3 mb-4">
-          <Package className="h-8 w-8 text-green-600" />
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-            Nairobi Waste Marketplace
-          </h1>
-        </div>
-        <p className="text-gray-600 text-lg">
-          🌍 Buy and sell recyclable materials across Nairobi
-        </p>
-        <div className="flex justify-center gap-4 mt-4">
-          <Badge className="bg-green-100 text-green-800">
-            📦 {listings.length} Active Listings
-          </Badge>
-          <Badge className="bg-blue-100 text-blue-800">
-            🔄 Real-time Updates
-          </Badge>
-        </div>
-      </header>
-
-      <Tabs defaultValue="browse" className="space-y-6">
-        <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 bg-white shadow-lg">
-          <TabsTrigger value="browse" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">
-            🛍️ Browse
-          </TabsTrigger>
-          <TabsTrigger value="create" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">
-            ➕ Create
-          </TabsTrigger>
-          <TabsTrigger value="transactions" className="data-[state=active]:bg-green-500 data-[state=active]:text-white">
-            💰 Transactions
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Browse Tab */}
-        <TabsContent value="browse" className="space-y-6">
-          {/* Filters */}
-          <Card className="p-6 shadow-xl border-0 bg-white">
-            <div className="flex items-center gap-3 mb-4">
-              <Filter className="h-5 w-5 text-green-600" />
-              <h3 className="text-lg font-semibold">🔍 Search & Filter</h3>
-            </div>
-            <div className="grid md:grid-cols-4 gap-4">
-              <div>
-                <Label className="text-sm font-medium">Waste Type</Label>
-                <Select value={filters.wasteType} onValueChange={(value) => setFilters({...filters, wasteType: value})}>
-                  <SelectTrigger className="border-green-200 focus:border-green-400">
-                    <SelectValue placeholder="📦 All types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">📦 All types</SelectItem>
-                    <SelectItem value="plastic">♻️ Plastic</SelectItem>
-                    <SelectItem value="organic">🌱 Organic</SelectItem>
-                    <SelectItem value="electronic">📱 Electronic</SelectItem>
-                    <SelectItem value="hazardous">⚠️ Hazardous</SelectItem>
-                    <SelectItem value="mixed">🔄 Mixed</SelectItem>
-                  </SelectContent>
-                </Select>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">Nairobi Waste Marketplace</h1>
+            <p className="text-muted-foreground">Connect with waste collectors and recyclers in your area</p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>
+                <Package className="h-4 w-4 mr-2" />
+                Create Listing
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create New Listing</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Title</label>
+                    <Input
+                      value={newListing.title}
+                      onChange={(e) => setNewListing(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="e.g., Plastic Bottles for Recycling"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Waste Type</label>
+                    <Select
+                      value={newListing.wasteType}
+                      onValueChange={(value: WasteType) => 
+                        setNewListing(prev => ({ ...prev, wasteType: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select waste type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="plastic">Plastic</SelectItem>
+                        <SelectItem value="organic">Organic</SelectItem>
+                        <SelectItem value="electronic">Electronic</SelectItem>
+                        <SelectItem value="hazardous">Hazardous</SelectItem>
+                        <SelectItem value="mixed">Mixed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Description</label>
+                  <Textarea
+                    value={newListing.description}
+                    onChange={(e) => setNewListing(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Describe your waste materials, condition, and any special requirements"
+                    rows={3}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Quantity (kg)</label>
+                    <Input
+                      type="number"
+                      value={newListing.quantity}
+                      onChange={(e) => setNewListing(prev => ({ ...prev, quantity: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Price per kg</label>
+                    <Input
+                      type="number"
+                      value={newListing.pricePerUnit}
+                      onChange={(e) => setNewListing(prev => ({ ...prev, pricePerUnit: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Location</label>
+                    <Input
+                      value={newListing.location}
+                      onChange={(e) => setNewListing(prev => ({ ...prev, location: e.target.value }))}
+                      placeholder="Nairobi area"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label className="text-sm font-medium">Min Price (KES/kg)</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={filters.minPrice}
-                  onChange={(e) => setFilters({...filters, minPrice: e.target.value})}
-                  className="border-green-200 focus:border-green-400"
-                />
-              </div>
-              <div>
-                <Label className="text-sm font-medium">Max Price (KES/kg)</Label>
-                <Input
-                  type="number"
-                  placeholder="1000"
-                  value={filters.maxPrice}
-                  onChange={(e) => setFilters({...filters, maxPrice: e.target.value})}
-                  className="border-green-200 focus:border-green-400"
-                />
-              </div>
-              <div className="flex items-end">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setFilters({ wasteType: 'all', minPrice: '', maxPrice: '' })}
-                  className="border-green-200 hover:bg-green-50"
-                >
-                  🔄 Clear
+              <div className="flex justify-end gap-2">
+                <Button variant="outline">Cancel</Button>
+                <Button onClick={handleCreateListing} disabled={loading}>
+                  {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Create Listing
                 </Button>
               </div>
-            </div>
-          </Card>
+            </DialogContent>
+          </Dialog>
+        </div>
 
-          {/* Listings */}
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Loading amazing waste listings...</p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="text-center py-12">
-              <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">No listings found</p>
-              <p className="text-gray-500">Try adjusting your filters</p>
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filtered.map((listing) => (
-                <Card key={listing.id} className="p-6 hover:shadow-2xl transition-all duration-300 border-0 bg-white shadow-lg hover:scale-105">
-                  <div className="flex justify-between items-start mb-4">
-                    <Badge className={`${getWasteTypeColor(listing.wasteType)} border`}>
-                      {listing.wasteType.toUpperCase()}
-                    </Badge>
-                    <Badge className={`${getStatusColor(listing.status)} border`}>
-                      {listing.status}
-                    </Badge>
-                  </div>
-                  
-                  <h3 className="text-xl font-bold mb-2 text-gray-800">{listing.wasteType} Waste</h3>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">{listing.description}</p>
-                  
-                  <div className="space-y-3 text-sm">
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <Scale className="h-4 w-4 text-green-600" />
-                      <span><strong>{listing.quantity} kg</strong> available</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <DollarSign className="h-4 w-4 text-green-600" />
-                      <span className="font-bold text-green-600">KES {listing.pricePerKg}/kg</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <MapPin className="h-4 w-4 text-green-600" />
-                      <span>{listing.location}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <Calendar className="h-4 w-4 text-green-600" />
-                      <span>Until {new Date(listing.availableUntil).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6 pt-4 border-t border-gray-200">
-                    <div className="flex justify-between items-center gap-3">
-                      <div>
-                        <p className="text-xs text-gray-500">Total Value</p>
-                        <span className="text-xl font-bold text-green-600">
-                          KES {listing.quantity * listing.pricePerKg}
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                          onClick={() => {
-                            window.location.href = "tel:+254723065707";
-                          }}
-                        >
-                          📞 Call
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const message = encodeURIComponent(
-                              `Hi, I'm interested in buying ${listing.quantity} kg of ${listing.wasteType} waste at KES ${listing.pricePerKg}/kg from the Nairobi Waste app.`,
-                            );
-                            const url = `https://wa.me/254723065707?text=${message}`;
-                            window.open(url, "_blank");
-                          }}
-                        >
-                          WhatsApp
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
+        {/* Search and Filters */}
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search listings..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Select value={filters.wasteType} onValueChange={(value) => setFilters(prev => ({ ...prev, wasteType: value }))}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Waste Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="plastic">Plastic</SelectItem>
+                <SelectItem value="organic">Organic</SelectItem>
+                <SelectItem value="electronic">Electronic</SelectItem>
+                <SelectItem value="hazardous">Hazardous</SelectItem>
+                <SelectItem value="mixed">Mixed</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={filters.sortBy} onValueChange={(value) => setFilters(prev => ({ ...prev, sortBy: value }))}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest</SelectItem>
+                <SelectItem value="price_low">Price: Low to High</SelectItem>
+                <SelectItem value="price_high">Price: High to Low</SelectItem>
+                <SelectItem value="rating">Highest Rated</SelectItem>
+              </SelectContent>
+            </Select>
 
-        {/* Create Listing Tab */}
-        <TabsContent value="create">
-          <Card className="p-8 shadow-xl border-0 bg-white">
-            <div className="flex items-center gap-3 mb-6">
-              <Plus className="h-6 w-6 text-green-600" />
-              <h2 className="text-2xl font-bold">🆕 Create New Listing</h2>
+            <div className="flex gap-1 border rounded-md">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
             </div>
+          </div>
+        </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <Label className="text-sm font-medium">Waste Type *</Label>
-                <Select value={newListing.wasteType} onValueChange={(value) => setNewListing({...newListing, wasteType: value})}>
-                  <SelectTrigger className="border-green-200 focus:border-green-400">
-                    <SelectValue placeholder="Select waste type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="plastic">♻️ Plastic</SelectItem>
-                    <SelectItem value="organic">🌱 Organic</SelectItem>
-                    <SelectItem value="electronic">📱 Electronic</SelectItem>
-                    <SelectItem value="hazardous">⚠️ Hazardous</SelectItem>
-                    <SelectItem value="mixed">🔄 Mixed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label className="text-sm font-medium">Quantity (kg) *</Label>
-                <Input
-                  type="number"
-                  placeholder="100"
-                  value={newListing.quantity}
-                  onChange={(e) => setNewListing({...newListing, quantity: e.target.value})}
-                  className="border-green-200 focus:border-green-400"
-                />
-              </div>
-              
-              <div>
-                <Label className="text-sm font-medium">Price per kg (KES) *</Label>
-                <Input
-                  type="number"
-                  placeholder="25"
-                  value={newListing.pricePerKg}
-                  onChange={(e) => setNewListing({...newListing, pricePerKg: e.target.value})}
-                  className="border-green-200 focus:border-green-400"
-                />
-              </div>
-              
-              <div>
-                <Label className="text-sm font-medium">Location *</Label>
-                <Input
-                  placeholder="Nairobi, Kenya"
-                  value={newListing.location}
-                  onChange={(e) => setNewListing({...newListing, location: e.target.value})}
-                  className="border-green-200 focus:border-green-400"
-                />
-              </div>
-              
-              <div>
-                <Label className="text-sm font-medium">Available From</Label>
-                <Input
-                  type="date"
-                  value={newListing.availableFrom}
-                  onChange={(e) => setNewListing({...newListing, availableFrom: e.target.value})}
-                  className="border-green-200 focus:border-green-400"
-                />
-              </div>
-              
-              <div>
-                <Label className="text-sm font-medium">Available Until</Label>
-                <Input
-                  type="date"
-                  value={newListing.availableUntil}
-                  onChange={(e) => setNewListing({...newListing, availableUntil: e.target.value})}
-                  className="border-green-200 focus:border-green-400"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <Label className="text-sm font-medium">Description</Label>
-                <textarea
-                  className="w-full p-3 border border-green-200 rounded-md focus:border-green-400 focus:outline-none"
-                  rows={3}
-                  placeholder="Describe your waste materials in detail..."
-                  value={newListing.description}
-                  onChange={(e) => setNewListing({...newListing, description: e.target.value})}
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <Button onClick={handleCreateListing} className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3">
-                  🚀 Create Listing
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </TabsContent>
+        {/* Results */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {filteredListings.length} listings found
+          </p>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
 
-        {/* Transactions Tab */}
-        <TabsContent value="transactions">
-          <Card className="p-8 shadow-xl border-0 bg-white">
-            <div className="flex items-center gap-3 mb-6">
-              <TrendingUp className="h-6 w-6 text-green-600" />
-              <h2 className="text-2xl font-bold">📈 My Transactions</h2>
-            </div>
+        {/* Listings Grid */}
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : (
+          <div className={`grid gap-6 ${
+            viewMode === 'grid' ? 'md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'
+          }`}>
+            {filteredListings.map((listing) => (
+              <ListingCard key={listing.id} listing={listing} />
+            ))}
+          </div>
+        )}
 
-            <div className="text-center py-12">
-              <TrendingUp className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">No transactions yet</p>
-              <p className="text-gray-500">Start buying and selling to see your transaction history</p>
-            </div>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        {!loading && filteredListings.length === 0 && (
+          <div className="text-center py-12">
+            <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No listings found</h3>
+            <p className="text-muted-foreground">Try adjusting your filters or search query</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

@@ -3,20 +3,22 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import BottomNavSimple from "@/components/BottomNavSimple";
+import BottomNav from "@/components/BottomNav";
 import Home from "@/pages/Home";
-import ServiceRequest from "@/pages/ServiceRequest";
 import MarketplaceRouter from "@/pages/MarketplaceRouter";
 import Dashboard from "@/pages/Dashboard";
-import Community from "@/pages/Community";
-import AuthSupabase from "@/pages/AuthSupabase";
+import Auth from "@/pages/Auth";
 import { SupabaseProvider, useSupabase } from "@/contexts/SupabaseContext";
-import RequestCollection from "./pages/RequestCollection";
+import { UserProvider } from "@/contexts/UserContext";
 import CollectorDashboard from "./pages/CollectorDashboard";
 import SmartCollectorDashboard from "./pages/SmartCollectorDashboard";
 import Learn from "./pages/Learn";
 import TestSupabase from "./pages/TestSupabase";
 import TrackCollection from "./pages/TrackCollection";
+import ResetPassword from "./pages/ResetPassword";
+import ProfilePage from "./pages/ProfilePage";
+import TestPage from "./pages/TestPage";
+import Analyze from "./pages/Analyze";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -62,10 +64,11 @@ const GuestRoute = ({ children }: { children: JSX.Element }) => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <SupabaseProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <Router>
+      <UserProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Router>
           <ErrorBoundary>
             <div className="min-h-screen bg-background">
             <Routes>
@@ -73,7 +76,7 @@ const App = () => (
                 path="/"
                 element={
                   <GuestRoute>
-                    <AuthSupabase />
+                    <Auth />
                   </GuestRoute>
                 }
               />
@@ -81,7 +84,7 @@ const App = () => (
                 path="/auth"
                 element={
                   <GuestRoute>
-                    <AuthSupabase />
+                    <Auth />
                   </GuestRoute>
                 }
               />
@@ -90,14 +93,6 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <Home />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/service-request"
-                element={
-                  <ProtectedRoute>
-                    <ServiceRequest />
                   </ProtectedRoute>
                 }
               />
@@ -114,22 +109,6 @@ const App = () => (
                 element={
                   <ProtectedRoute>
                     <MarketplaceRouter />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/community"
-                element={
-                  <ProtectedRoute>
-                    <Community />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/request-collection"
-                element={
-                  <ProtectedRoute>
-                    <RequestCollection />
                   </ProtectedRoute>
                 }
               />
@@ -173,14 +152,51 @@ const App = () => (
                   </ProtectedRoute>
                 }
               />
+              <Route
+                path="/test-page"
+                element={
+                  <ProtectedRoute>
+                    <TestPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/analyze"
+                element={
+                  <ProtectedRoute>
+                    <Analyze />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reset-password"
+                element={
+                  <GuestRoute>
+                    <ResetPassword />
+                  </GuestRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/test"
+                element={<TestPage />}
+              />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<div style={{ padding: '2rem', textAlign: 'center' }}><h2>404 - Page Not Found</h2><p>The page you are looking for does not exist.</p></div>} />
             </Routes>
-            <BottomNavSimple />
+            <BottomNav />
           </div>
           </ErrorBoundary>
-        </Router>
-      </TooltipProvider>
+          </Router>
+        </TooltipProvider>
+      </UserProvider>
     </SupabaseProvider>
   </QueryClientProvider>
 );
